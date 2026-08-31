@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
+import { Body, Controller, Param, Post } from '@nestjs/common'
 import { ExceptionReportService } from './exception-report.service'
 
 interface RecalculateBody {
@@ -17,10 +17,5 @@ export class ExceptionReportController {
   ) {
     this.service.recalculateAll(tenantId, body.locationIds, body.requestedBy)
     return { status: 'started' }
-  }
-
-  @Get(':tenantId/summary')
-  summary(@Param('tenantId') tenantId: string, @Query('uom') uom?: string) {
-    return this.service.buildSummary(tenantId, uom)
   }
 }

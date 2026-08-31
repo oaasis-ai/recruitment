@@ -19,6 +19,9 @@ Take five minutes to read in silence first, then talk us through it.
   retries. A job that crashes or whose worker dies is redelivered from the start.
 - `KyselyService` is a typed SQL query builder over a Postgres connection pool.
   `db.transaction().execute(fn)` holds one pooled connection for the duration of `fn`.
+- Inventory movements are stored in whatever unit they arrived in.
+  `product_uom_conversions` holds, per product location, the factor from each
+  unit to that product location's base unit.
 - `CacheHelperService` is a shared Redis cache; `invalidateByTag` evicts every
   entry tagged with that string.
 - The database is reached with a service-role key, so route-level auth guards
