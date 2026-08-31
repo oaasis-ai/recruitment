@@ -38,5 +38,5 @@ src/exception-report/                the code under review
 src/common/                          house modules, as documented stubs
   background_jobs/                   job tracking rows + BullMQ base classes
   database/                          query builder, transactions, table types
-  planning/  cache/  mailer/
+  planning/  cache/
 ```

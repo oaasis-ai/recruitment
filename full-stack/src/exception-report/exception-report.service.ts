@@ -3,7 +3,6 @@ import { BackgroundJobsService } from '~/common/background_jobs/background_jobs.
 import { CacheHelperService } from '~/common/cache/cache-helper.service'
 import { KyselyService } from '~/common/database/kysely.service'
 import { PlanContextProvider } from '~/common/planning/plan-context.provider'
-import { ExceptionRecalcQueue } from './exception-recalc.queue'
 
 interface Movement {
   productLocationId: string
@@ -29,7 +28,6 @@ export class ExceptionReportService {
     private readonly cache: CacheHelperService,
     private readonly jobs: BackgroundJobsService,
     private readonly planContext: PlanContextProvider,
-    private readonly queue: ExceptionRecalcQueue,
   ) {}
 
   async startRecalculation(
@@ -51,9 +49,9 @@ export class ExceptionReportService {
       `Recalculation ${job.id} started for ${tenantId} by ${requestedBy}: ${locationIds.join(', ')}`,
     )
 
-    this.recalculateAll(tenantId, locationIds, job.id)
-      .then(() => this.queue.add({ tenantId, jobType: 'notify', requestedBy }))
-      .catch((error) => this.logger.error(`Recalculation ${job.id} failed: ${error}`))
+    this.recalculateAll(tenantId, locationIds, job.id).catch((error) =>
+      this.logger.error(`Recalculation ${job.id} failed: ${error}`),
+    )
 
     return job.id
   }
@@ -84,10 +82,6 @@ export class ExceptionReportService {
 
     await this.db.transaction().execute(async (trx) => {
       for (const pl of productLocations) {
-        if (await this.jobs.isCanceled(backgroundJobId)) {
-          return
-        }
-
         const planDate = await this.planContext.getDemandPlanDate()
 
         const movements = await trx

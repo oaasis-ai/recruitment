@@ -3,7 +3,6 @@ import { Job } from 'bullmq'
 import { BackgroundJobsService } from '~/common/background_jobs/background_jobs.service'
 import { BaseBullMQProcessor } from '~/common/background_jobs/bullmq/base-bullmq.processor'
 import { BullMQConfigService } from '~/common/background_jobs/bullmq/bullmq.config'
-import { MailerService } from '~/common/mailer/mailer.service'
 import {
   EXCEPTION_RECALC_QUEUE_NAME,
   ExceptionRecalcJobData,
@@ -18,7 +17,6 @@ export class ExceptionRecalcProcessor extends BaseBullMQProcessor<ExceptionRecal
     config: BullMQConfigService,
     jobs: BackgroundJobsService,
     private readonly service: ExceptionReportService,
-    private readonly mailer: MailerService,
   ) {
     super(config, jobs)
   }
@@ -30,21 +28,7 @@ export class ExceptionRecalcProcessor extends BaseBullMQProcessor<ExceptionRecal
   protected override async processJob(
     job: Job<ExceptionRecalcJobData>,
   ): Promise<void> {
-    const {
-      tenantId,
-      jobType,
-      locationIds = [],
-      requestedBy,
-      backgroundJobId = '',
-    } = job.data
-
-    if (jobType === 'notify') {
-      await this.mailer.send(
-        requestedBy ?? '',
-        `Exceptions recalculated for ${tenantId}`,
-      )
-      return
-    }
+    const { tenantId, locationIds, backgroundJobId } = job.data
 
     await Promise.all(
       locationIds.map(async (locationId) => {

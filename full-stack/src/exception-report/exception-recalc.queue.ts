@@ -7,10 +7,8 @@ export const EXCEPTION_RECALC_QUEUE_NAME = 'exception-recalc'
 
 export interface ExceptionRecalcJobData {
   tenantId: string
-  jobType: 'recalculate' | 'notify'
-  locationIds?: Array<string>
-  requestedBy?: string
-  backgroundJobId?: string
+  locationIds: Array<string>
+  backgroundJobId: string
 }
 
 @Injectable()
