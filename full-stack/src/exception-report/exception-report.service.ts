@@ -52,7 +52,7 @@ export class ExceptionReportService {
     )
 
     this.recalculateAll(tenantId, locationIds, job.id)
-      .then(() => this.queue.enqueue({ tenantId, jobType: 'notify', requestedBy }))
+      .then(() => this.queue.add({ tenantId, jobType: 'notify', requestedBy }))
       .catch((error) => this.logger.error(`Recalculation ${job.id} failed: ${error}`))
 
     return job.id

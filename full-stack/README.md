@@ -12,38 +12,31 @@ Take five minutes to read in silence first, then talk us through it.
   queues. Both run the same codebase; a job handler runs wherever its queue's
   worker lives.
 - Node.js runs JavaScript on a **single thread with an event loop**. `await`
-  yields to other requests; synchronous CPU work does not. Anything heavy or
+  yields to other work; synchronous CPU work does not. Anything heavy or
   blocking inside the API process stalls every other request on that process.
-- Queues are **BullMQ** on Redis. `BaseBullMQQueue` enqueues; `BaseBullMQProcessor`
-  runs the handler on a worker with **at-least-once delivery** and automatic
-  retries. A job that crashes or whose worker dies is redelivered from the start.
-- `KyselyService` is a typed SQL query builder over a Postgres connection pool.
-  `db.transaction().execute(fn)` holds one pooled connection for the duration of `fn`.
-- Inventory movements are stored in whatever unit they arrived in.
+- Inventory movements are stored in whatever unit they arrived in;
   `product_uom_conversions` holds, per product location, the factor from each
   unit to that product location's base unit.
-- `CacheHelperService` is a shared Redis cache; `invalidateByTag` evicts every
-  entry tagged with that string.
-- `BackgroundJobsService` tracks one `background_jobs` row per long-running
-  job: `createJob`, `hasActiveJobOfType`, `isCanceled`, `incrementProgress`,
-  `markComplete`. Each is one query.
-- `PlanContextProvider.getDemandPlanDate()` returns the start date of the active
-  planning cycle, read from the database.
 - The database is reached with a service-role key, so route-level auth guards
   are the only per-request authorization.
 
+The house modules the feature imports (`~/common/...`, where `~` is `src/`) are
+included as stubs in `src/common/`: real signatures, a comment on each stating
+what it does, no implementation. Read them as you would in a real review.
+
 You do not need to know TypeScript idioms. If a construct is unfamiliar
-(`?? 1`, `(x) => ...`, `[...arr]`), just ask.
+(`?? 1`, `(x) => ...`, `.then()`, `[...arr]`), just ask.
 
 ## Files
 
 ```
-src/exception-report/
-  exception-report.controller.ts   HTTP routes
-  exception-report.service.ts      the recalculation and the summary
-  exception-recalc.queue.ts        job producer
-  exception-recalc.processor.ts    job consumer (runs on a worker)
+src/exception-report/                the code under review
+  exception-report.controller.ts     HTTP route
+  exception-report.service.ts        the recalculation
+  exception-recalc.queue.ts          job producer
+  exception-recalc.processor.ts      job consumer (runs on a worker)
+src/common/                          house modules, as documented stubs
+  background_jobs/                   job tracking rows + BullMQ base classes
+  database/                          query builder, transactions, table types
+  planning/  cache/  mailer/
 ```
-
-Imports from `~/common/...` are house modules; their behaviour is described above
-and you can assume they work as documented.
