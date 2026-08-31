@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { ConflictException, Injectable, Logger } from '@nestjs/common'
+import { BackgroundJobsService } from '~/common/background_jobs/background_jobs.service'
 import { CacheHelperService } from '~/common/cache/cache-helper.service'
 import { KyselyService } from '~/common/database/kysely.service'
+import { PlanContextProvider } from '~/common/planning/plan-context.provider'
 import { ExceptionRecalcQueue } from './exception-recalc.queue'
 
 interface Movement {
@@ -25,26 +27,54 @@ export class ExceptionReportService {
   constructor(
     private readonly db: KyselyService,
     private readonly cache: CacheHelperService,
+    private readonly jobs: BackgroundJobsService,
+    private readonly planContext: PlanContextProvider,
     private readonly queue: ExceptionRecalcQueue,
   ) {}
+
+  async startRecalculation(
+    tenantId: string,
+    locationIds: Array<string>,
+    requestedBy: string,
+  ): Promise<string> {
+    if (await this.jobs.hasActiveJobOfType('exception_recalc')) {
+      throw new ConflictException('A recalculation is already running')
+    }
+
+    const job = await this.jobs.createJob({
+      type: 'exception_recalc',
+      tenantId,
+      total: locationIds.length,
+    })
+
+    this.logger.log(
+      `Recalculation ${job.id} started for ${tenantId} by ${requestedBy}: ${locationIds.join(', ')}`,
+    )
+
+    this.recalculateAll(tenantId, locationIds, job.id)
+      .then(() => this.queue.enqueue({ tenantId, jobType: 'notify', requestedBy }))
+      .catch((error) => this.logger.error(`Recalculation ${job.id} failed: ${error}`))
+
+    return job.id
+  }
 
   async recalculateAll(
     tenantId: string,
     locationIds: Array<string>,
-    requestedBy: string,
+    backgroundJobId: string,
   ): Promise<void> {
-    this.logger.log(
-      `Recalculation started for ${tenantId} by ${requestedBy}: ${locationIds.join(', ')}`,
-    )
-
     for (const locationId of locationIds) {
-      await this.recalculateLocation(tenantId, locationId)
+      await this.recalculateLocation(tenantId, locationId, backgroundJobId)
+      await this.jobs.incrementProgress(backgroundJobId, 1)
     }
-
-    await this.queue.enqueue({ tenantId, jobType: 'notify', requestedBy })
+    await this.jobs.markComplete(backgroundJobId)
   }
 
-  async recalculateLocation(tenantId: string, locationId: string): Promise<void> {
+  async recalculateLocation(
+    tenantId: string,
+    locationId: string,
+    backgroundJobId: string,
+  ): Promise<void> {
     const productLocations = await this.db
       .selectFrom('product_locations')
       .where('tenant_id', '=', tenantId)
@@ -54,9 +84,16 @@ export class ExceptionReportService {
 
     await this.db.transaction().execute(async (trx) => {
       for (const pl of productLocations) {
+        if (await this.jobs.isCanceled(backgroundJobId)) {
+          return
+        }
+
+        const planDate = await this.planContext.getDemandPlanDate()
+
         const movements = await trx
           .selectFrom('inventory_movements')
           .where('product_location_id', '=', pl.id)
+          .where('date', '>=', planDate)
           .selectAll()
           .execute()
 

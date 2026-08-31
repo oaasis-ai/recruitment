@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { BackgroundJobsService } from '~/common/background_jobs/background_jobs.service'
 import { BaseBullMQProcessor } from '~/common/background_jobs/bullmq/base-bullmq.processor'
@@ -12,6 +12,8 @@ import { ExceptionReportService } from './exception-report.service'
 
 @Injectable()
 export class ExceptionRecalcProcessor extends BaseBullMQProcessor<ExceptionRecalcJobData> {
+  private readonly logger = new Logger(ExceptionRecalcProcessor.name)
+
   constructor(
     config: BullMQConfigService,
     jobs: BackgroundJobsService,
@@ -33,7 +35,7 @@ export class ExceptionRecalcProcessor extends BaseBullMQProcessor<ExceptionRecal
       jobType,
       locationIds = [],
       requestedBy,
-      backgroundJobId,
+      backgroundJobId = '',
     } = job.data
 
     if (jobType === 'notify') {
@@ -46,15 +48,19 @@ export class ExceptionRecalcProcessor extends BaseBullMQProcessor<ExceptionRecal
 
     await Promise.all(
       locationIds.map(async (locationId) => {
-        await this.service.recalculateLocation(tenantId, locationId)
-        if (backgroundJobId) {
+        try {
+          await this.service.recalculateLocation(
+            tenantId,
+            locationId,
+            backgroundJobId,
+          )
           await this.jobs.incrementProgress(backgroundJobId, 1)
+        } catch (error) {
+          this.logger.warn(`Location ${locationId} skipped: ${error}`)
         }
       }),
     )
 
-    if (backgroundJobId) {
-      await this.jobs.markComplete(backgroundJobId)
-    }
+    await this.jobs.markComplete(backgroundJobId)
   }
 }

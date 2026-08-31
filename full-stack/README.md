@@ -24,6 +24,11 @@ Take five minutes to read in silence first, then talk us through it.
   unit to that product location's base unit.
 - `CacheHelperService` is a shared Redis cache; `invalidateByTag` evicts every
   entry tagged with that string.
+- `BackgroundJobsService` tracks one `background_jobs` row per long-running
+  job: `createJob`, `hasActiveJobOfType`, `isCanceled`, `incrementProgress`,
+  `markComplete`. Each is one query.
+- `PlanContextProvider.getDemandPlanDate()` returns the start date of the active
+  planning cycle, read from the database.
 - The database is reached with a service-role key, so route-level auth guards
   are the only per-request authorization.
 

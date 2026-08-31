@@ -11,11 +11,15 @@ export class ExceptionReportController {
   constructor(private readonly service: ExceptionReportService) {}
 
   @Post(':tenantId/recalculate')
-  recalculate(
+  async recalculate(
     @Param('tenantId') tenantId: string,
     @Body() body: RecalculateBody,
-  ) {
-    this.service.recalculateAll(tenantId, body.locationIds, body.requestedBy)
-    return { status: 'started' }
+  ): Promise<{ jobId: string }> {
+    const jobId = await this.service.startRecalculation(
+      tenantId,
+      body.locationIds,
+      body.requestedBy,
+    )
+    return { jobId }
   }
 }
